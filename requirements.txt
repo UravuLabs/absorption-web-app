@@ -3,4 +3,5 @@ uvicorn
 numpy
 pandas
 meteostat
+geopy
 pydantic
