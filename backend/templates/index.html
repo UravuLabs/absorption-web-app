@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Monthly Water Absorption Calculator</title>
+
+    <!-- Normalize -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f7fb;
+            padding: 30px;
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+        }
+        label {
+            font-weight: bold;
+            margin-top: 15px;
+            display: block;
+        }
+        select, button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            font-size: 16px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin-top: 30px;
+            background: #eef4ff;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        canvas {
+            margin-top: 30px;
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+    <h1>Monthly Water Absorption Calculator</h1>
+
+    <label>Select City</label>
+    <select id="city">
+        {% for city in cities %}
+        <option value="{{ city }}">{{ city }}</option>
+        {% endfor %}
+    </select>
+
+    <label>Select Month</label>
+    <select id="month">
+        {% for month in months %}
+        <option value="{{ month }}">{{ month }}</option>
+        {% endfor %}
+    </select>
+
+    <button onclick="calculate()">Calculate</button>
+
+    <div class="result" id="result" style="display:none;"></div>
+
+    <canvas id="cfmChart"></canvas>
+</div>
+
+<script>
+let cfmChart = null;
+
+function calculate() {
+    const city = document.getElementById("city").value;
+    const month = document.getElementById("month").value;
+
+    fetch("/calculate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ city, month })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+
+        // Show numeric results
+        const resultDiv = document.getElementById("result");
+        resultDiv.style.display = "block";
+        resultDiv.innerHTML = `
+            <p><strong>Average Temperature (°C):</strong> ${data.avg_temperature_C}</p>
+            <p><strong>Average RH (%):</strong> ${data.avg_rh_percent}</p>
+            <p><strong>Water Absorbed (kg/hr):</strong> ${data.water_absorbed_kg_per_hr}</p>
+            <p><strong>Total Monthly Water Absorbed (kg):</strong> ${data.monthly_water_absorbed}</p>
+        `;
+
+        // Plot CFM graph
+        plotCFM(data.selected_cfm);
+    });
+}
+
+function plotCFM(cfmData) {
+    const ctx = document.getElementById('cfmChart').getContext('2d');
+
+    // Destroy previous chart if exists
+    if (cfmChart) {
+        cfmChart.destroy();
+    }
+
+    cfmChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: cfmData.map((_, i) => i + 1), // Hour index
+            datasets: [{
+                label: 'Selected CFM (Hourly)',
+                data: cfmData,
+                borderColor: '#007bff',
+                backgroundColor: 'rgba(0,123,255,0.15)',
+                pointRadius: 0,
+                borderWidth: 2,
+                tension: 0.25
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: true }
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: 'Hour of Month' }
+                },
+                y: {
+                    title: { display: true, text: 'CFM' }
+                }
+            }
+        }
+    });
+}
+</script>
+</body>
+</html>
